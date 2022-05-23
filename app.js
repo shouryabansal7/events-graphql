@@ -7,9 +7,12 @@ const { buildSchema, graphql } = require("graphql");
 //buildSchema is a function that takes a string and that string should define ur schema.
 //the advantage of this approach is that we can build our schema as a string so in a convenient written form
 //and the heavy lifting of converting this to js object and so on is taken care by this graphql package
+const mongoose = require("mongoose");
+
+const Event = require("./models/event");
+const res = require("express/lib/response");
 
 const app = express();
-const events = [];
 
 app.use(bodyParser.json());
 
@@ -45,24 +48,58 @@ app.use(
     `),
     rootValue: {
       events: () => {
-        return events;
+        return Event.find()
+          .then((events) => {
+            return events.map((event) => {
+              return { ...event._doc, _id: event._doc._id.toString() };
+            });
+          })
+          .catch((err) => {
+            console.log(err);
+            throw err;
+          });
       },
       createEvent: (args) => {
-        const event = {
-          _id: Math.random().toString(),
+        // const event = {
+        //   _id: Math.random().toString(),
+        //   title: args.eventInput.title,
+        //   description: args.eventInput.description,
+        //   price: +args.eventInput.price,
+        //   //+ is used to convert argument ot float
+        //   date: args.eventInput.date,
+        // };
+        const event = new Event({
           title: args.eventInput.title,
           description: args.eventInput.description,
           price: +args.eventInput.price,
-          //+ is used to convert argument ot float
-          date: args.eventInput.date,
-        };
-        events.push(event);
-        console.log(event);
-        return event;
+          date: new Date(args.eventInput.date),
+        });
+        return event
+          .save()
+          .then((result) => {
+            console.log(result);
+            return { ...result._doc, _id: result.id };
+            //result.id will also work and result._doc._id.toString() will also work too
+          })
+          .catch((err) => {
+            console.log(err);
+            throw err;
+          });
       },
     },
     graphiql: true,
   })
 );
+//events77
+//2D63USUbOmKAWaR8
 
-app.listen(3000);
+mongoose
+  .connect(
+    `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASSWORD}@events-cluster.e3ikd.mongodb.net/${process.env.MONGO_DB}?retryWrites=true&w=majority`
+  )
+  .then(() => {
+    app.listen(3000);
+  })
+  .catch((err) => {
+    console.log(err);
+  });
