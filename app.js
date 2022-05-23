@@ -3,20 +3,22 @@ const bodyParser = require("body-parser");
 const graphqlHttp = require("express-graphql").graphqlHTTP;
 //express-graphql is a middleware function that takes the incoming requests and funnel the through graphql query parser and automatically
 //forward them to the right resolvers, it will be our duty to set the resolver schema up
-const { buildSchema, graphql } = require("graphql");
+const { buildSchema } = require("graphql");
 //buildSchema is a function that takes a string and that string should define ur schema.
 //the advantage of this approach is that we can build our schema as a string so in a convenient written form
 //and the heavy lifting of converting this to js object and so on is taken care by this graphql package
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const Event = require("./models/event");
-const res = require("express/lib/response");
+const User = require("./models/user");
 
 const app = express();
 
 app.use(bodyParser.json());
 
 //! means its non nullible, means we cannot have events that do not have id.
+//password is nullible since a lot of times we will not be returning passwords.
 app.use(
   "/graphql",
   graphqlHttp({
@@ -28,18 +30,30 @@ app.use(
             price: Float!
             date: String!
         }
+
+        type User{
+            _id: ID!
+            email: String!
+            password: String
+        }
+
         input EventInput{
             title: String!
             description: String!
             price: Float!
             date: String!
         }
+
+        input UserInput{
+            email: String!
+            password: String!
+        }
         type RootQuery{
             events: [Event!]!,
-
         }
         type RootMutation {
             createEvent(eventInput: EventInput): Event
+            createUser(userInput: UserInput): User
         }
         schema{
             query: RootQuery
@@ -59,7 +73,35 @@ app.use(
             throw err;
           });
       },
-      createEvent: (args) => {
+      createEvent: async (args) => {
+        console.log(args);
+        try {
+          const event = await new Event({
+            title: args.eventInput.title,
+            description: args.eventInput.description,
+            price: +args.eventInput.price,
+            date: new Date(args.eventInput.date),
+            creator: "628b906996cdae9e411e0785",
+          });
+          let createdEvent;
+          await event.save();
+          console.log(event);
+          createdEvent = { ...event._doc, _id: event.id };
+          let user = await User.findById("628b906996cdae9e411e0785");
+          if (!user) {
+            throw new Error("User not found.");
+          }
+          user.createdEvents.push(event);
+          await user.save();
+
+          return createdEvent;
+          //event.id will also work and event._doc._id.toString() will also work too
+        } catch {
+          (err) => {
+            console.log(err);
+            throw err;
+          };
+        }
         // const event = {
         //   _id: Math.random().toString(),
         //   title: args.eventInput.title,
@@ -68,23 +110,30 @@ app.use(
         //   //+ is used to convert argument ot float
         //   date: args.eventInput.date,
         // };
-        const event = new Event({
-          title: args.eventInput.title,
-          description: args.eventInput.description,
-          price: +args.eventInput.price,
-          date: new Date(args.eventInput.date),
-        });
-        return event
-          .save()
-          .then((result) => {
-            console.log(result);
-            return { ...result._doc, _id: result.id };
-            //result.id will also work and result._doc._id.toString() will also work too
-          })
-          .catch((err) => {
-            console.log(err);
-            throw err;
+      },
+      createUser: async (args) => {
+        console.log(args);
+        try {
+          let user = await User.findOne({ email: args.userInput.email });
+
+          if (user) {
+            throw new Error("User exists already.");
+          }
+
+          const hashedPassword = await bcrypt.hash(args.userInput.password, 12);
+          user = await new User({
+            email: args.userInput.email,
+            password: hashedPassword,
           });
+          await user.save();
+          console.log(user);
+
+          return { ...user._doc, password: null, _id: user.id };
+        } catch {
+          (err) => {
+            throw err;
+          };
+        }
       },
     },
     graphiql: true,
