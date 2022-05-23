@@ -9,19 +9,34 @@ const { buildSchema, graphql } = require("graphql");
 //and the heavy lifting of converting this to js object and so on is taken care by this graphql package
 
 const app = express();
+const events = [];
 
 app.use(bodyParser.json());
 
+//! means its non nullible, means we cannot have events that do not have id.
 app.use(
   "/graphql",
   graphqlHttp({
     schema: buildSchema(`
+        type Event{
+            _id: ID!
+            title: String!
+            description: String!
+            price: Float!
+            date: String!
+        }
+        input EventInput{
+            title: String!
+            description: String!
+            price: Float!
+            date: String!
+        }
         type RootQuery{
-            events: [String!]!,
+            events: [Event!]!,
 
         }
         type RootMutation {
-            createEvent(name: String):String
+            createEvent(eventInput: EventInput): Event
         }
         schema{
             query: RootQuery
@@ -30,11 +45,20 @@ app.use(
     `),
     rootValue: {
       events: () => {
-        return ["Romantic Cooking", "Sailing"];
+        return events;
       },
       createEvent: (args) => {
-        const eventName = args.name;
-        return eventName;
+        const event = {
+          _id: Math.random().toString(),
+          title: args.eventInput.title,
+          description: args.eventInput.description,
+          price: +args.eventInput.price,
+          //+ is used to convert argument ot float
+          date: args.eventInput.date,
+        };
+        events.push(event);
+        console.log(event);
+        return event;
       },
     },
     graphiql: true,
