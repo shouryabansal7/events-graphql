@@ -38,6 +38,7 @@ input UserInput{
 }
 type RootQuery{
     events: [Event!]!,
+    bookings: [Booking!]!
 }
 type RootMutation {
     createEvent(eventInput: EventInput): Event
