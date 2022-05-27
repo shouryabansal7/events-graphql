@@ -23,6 +23,11 @@ const singleEvent = async (eventId) => {
 const events = async (eventIds) => {
   try {
     let events = await Event.find({ _id: { $in: eventIds } });
+    events.sort((a, b) => {
+      return (
+        eventIds.indexOf(a._id.toString()) - eventIds.indexOf(b._id.toString())
+      );
+    });
     events = await events.map((event) => {
       return transformEvent(event);
     });
@@ -40,10 +45,7 @@ const user = async (userId) => {
     return {
       ...U._doc,
       _id: U.id,
-      createdEvents: eventLoader.load.bind(
-        this,
-        U._doc.createdEvents.toString()
-      ),
+      createdEvents: eventLoader.load.bind(this, U._doc.createdEvents),
     };
   } catch (err) {
     console.log(err);
