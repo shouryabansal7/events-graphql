@@ -45,7 +45,7 @@ const user = async (userId) => {
     return {
       ...U._doc,
       _id: U.id,
-      createdEvents: eventLoader.load.bind(this, U._doc.createdEvents),
+      createdEvents: () => eventLoader.loadMany(user._doc.createdEvents),
     };
   } catch (err) {
     console.log(err);
