@@ -137,6 +137,7 @@ class EventsPage extends Component {
     })
       .then((res) => {
         if (res.status !== 200 && res.status !== 201) {
+          console.log(res);
           throw new Error("Failed!");
         }
         return res.json();
